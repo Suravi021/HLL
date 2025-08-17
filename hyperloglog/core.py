@@ -80,7 +80,6 @@ class HyperLogLog:
         Converts the current HLL from sparse to dense mode.
         Updates internal implementation and registers.
         """
-        from hyperloglog.dense import DenseHyperLogLog
 
         # Build dense registers from sparse data
         if self.mode == 'sparse':
@@ -212,6 +211,7 @@ class HyperLogLog:
         return cls.from_bytes(data)
         
         
+
 
 
 
