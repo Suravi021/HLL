@@ -1,10 +1,12 @@
 from bisect import bisect_left
 import math
 
-from .constants import ALPHA_MM, THRESHOLD, 
+from .constants import ALPHA_MM, THRESHOLD
 from .bias_correction import bias_estimate
 from .hash_utils import murmurhash64a
 from .compression import decompress_sparse_registers
+
+
 
 class SparseHyperLogLog:
     def __init__(self, b: int = 14, register: int | bytes = 0, sparse_threshold: int | None = None):

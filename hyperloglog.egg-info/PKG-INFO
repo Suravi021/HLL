@@ -1,0 +1,7 @@
+Metadata-Version: 2.1
+Name: hyperloglog
+Version: 1.0
+Summary: An implementation of HyperLogLog with sparse and dense modes
+Author: RV AIML Dep
+Requires-Python: >=3.6
+Requires-Dist: psycopg2==2.9.10

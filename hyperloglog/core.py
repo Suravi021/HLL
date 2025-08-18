@@ -3,25 +3,27 @@ from .sparse import SparseHyperLogLog
 from .compression import pack_registers, compress_sparse_registers
 import base64
 import struct
+import numpy as np
+
 
 class HyperLogLog:
     """
     HyperLogLog (HLL) main interface for cardinality estimation.
     Supports both dense and sparse representations.
     """
-    def __init__(self, b: int = 14, mode: str = 'sparse', register: int | bytes = 0):
+    def __init__(self, b: int = 14, mode: str = 'sparse', register: bytes = b''):
         """
         Initializes the HyperLogLog object.
 
         Args:
-            b: int - number of bits used to index registers (precision parameter)
-            mode: str - 'dense' or 'sparse' mode
-            register: int/bytes - initial register data (0 for empty)
+            b (int): - number of bits used to index registers (precision parameter)
+            mode (str): - 'dense' or 'sparse' mode
+            register (bytes): - initial register data (0 for empty)
         """
-        if b in range(4,19):
+        if b in range(4, 19):
             self.b = b # number of bits in the register
         else:
-             raise ValueError("Value of b not in range [4,18]")
+             raise ValueError("Value of b not in range [4,18] and an integer")
             
         self.mode = mode # dense or sparse 
         self.m = 1 << b
@@ -72,7 +74,7 @@ class HyperLogLog:
         if self.mode == 'dense':
             return pack_registers(self.registers, self.b)
         else:
-            return compress_sparse_registers(self.registers, self.b )
+            return compress_sparse_registers(self.registers, self.b)
 
         
     def convert_to_dense(self):
@@ -81,22 +83,23 @@ class HyperLogLog:
         Updates internal implementation and registers.
         """
 
-        # Build dense registers from sparse data
+
         if self.mode == 'sparse':
             if isinstance(self.impl, SparseHyperLogLog):
                 sparse_regs = self.impl.registers
-                dense_registers = [0] * self.m
+                dense_registers = np.zeros(self.m, dtype=np.int32)  # self.m = 1 << self.b
                 for idx, rho in sparse_regs:
                     dense_registers[idx] = rho
 
                 packed = pack_registers(dense_registers, self.b)
+
 
                 self.mode = 'dense'
                 self.impl = DenseHyperLogLog(self.b, packed)
                 self.registers = self.impl.registers
 
 
-    def merge(self, hll2):
+    def merge(self, hll2: 'HyperLogLog') -> 'HyperLogLog':
             """
             Merges another HLL object into this one, matching C implementation logic.
         
@@ -152,6 +155,7 @@ class HyperLogLog:
                     return self.merge(hll2)
 
                 return self
+            
     def to_bytes(self) -> bytes:
         """
         Serialize this HLL into a stable, self-describing binary format.
@@ -209,10 +213,22 @@ class HyperLogLog:
         """
         data = base64.b64decode(s)  # ignores spaces/newlines like C decoder
         return cls.from_bytes(data)
+
+
+
         
         
 
 
+
+
+
+
+
+
+        
+        
+        
 
 
 

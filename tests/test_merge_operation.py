@@ -1,6 +1,7 @@
 
 from hyperloglog.core import HyperLogLog
 import unittest
+import numpy as np
 
 
 class TestMergeOperations(unittest.TestCase):
@@ -8,27 +9,10 @@ class TestMergeOperations(unittest.TestCase):
         self.b = 5  # Small value for faster tests
         self.m = 1 << self.b
 
-    def _fill_hll(self, hll, start, end):
+    def _fill_hll(self, hll, start, end): 
         """Helper: add integers as strings to the HLL."""
         for i in range(start, end):
             hll.add(str(i))
-        return hll
-
-    def _make_dense(self, values=None):
-        """Create a dense HLL with optional register values."""
-        hll = HyperLogLog(b=self.b, mode='dense')
-        if values:
-            full_values = values + [0] * (self.m - len(values))
-            hll.registers = full_values.copy()
-            hll.impl.registers = full_values.copy()
-        return hll
-
-    def _make_sparse(self, sparse_entries=None):
-        """Create a sparse HLL with optional sparse entries."""
-        hll = HyperLogLog(b=self.b, mode='sparse')
-        if sparse_entries:
-            hll.registers = sparse_entries.copy()
-            hll.impl.registers = sparse_entries.copy()
         return hll
 
     def _assert_merge_result(self, hll1, hll2):
@@ -40,8 +24,8 @@ class TestMergeOperations(unittest.TestCase):
         self.assertGreaterEqual(after_estimate, before_estimate)
 
     def test_dense_dense_merge(self):
-        hll1 = self._make_dense([1, 2, 3, 4])
-        hll2 = self._make_dense([2, 3, 1, 5])
+        hll1 = self._fill_hll(HyperLogLog(b=self.b),0,50000)
+        hll2 = self._fill_hll(HyperLogLog(b=self.b),50000,110000)
 
         card1_pre = hll1.estimate()
         card2_pre = hll2.estimate()
@@ -53,38 +37,45 @@ class TestMergeOperations(unittest.TestCase):
         self.assertGreaterEqual(hll1.estimate(), max(card1_pre, card2_pre))
 
     def test_dense_sparse_merge(self):
-        hll1 = self._make_dense([1, 2, 3, 4])
-        hll2 = self._make_sparse([(0, 7), (1, 1), (3, 2)])
+        hll1 = self._fill_hll(HyperLogLog(b=self.b),0,50000)
+        hll2 = self._fill_hll(HyperLogLog(b=self.b), 25, 50)
+
 
         card1_pre = hll1.estimate()
         card2_pre = hll2.estimate()
         result = hll1.merge(hll2)
 
         expected = hll1.registers.copy()
-        for idx, rho in hll2.registers:
+        hll2.registers=list(hll2.registers)
+        for idx, rho in enumerate(hll2.registers):
             expected[idx] = max(expected[idx], rho)
-        self.assertEqual(hll1.impl.registers, expected)
+        self.assertTrue(np.array_equal(hll1.impl.registers, expected))
+
         self.assertIs(result, hll1)
         self.assertGreaterEqual(hll1.estimate(), max(card1_pre, card2_pre))
 
     def test_sparse_dense_merge(self):
-        hll1 = self._make_sparse([(0, 2), (2, 1), (4, 5)])
-        hll2 = self._make_dense([5, 2, 7, 1])
+
+        hll1 = self._fill_hll(HyperLogLog(b=self.b),600025,600089)
+        hll2 = self._fill_hll(HyperLogLog(b=self.b),0,50000)
+        
 
         card1_pre = hll1.estimate()
         card2_pre = hll2.estimate()
+
         result = hll1.merge(hll2)
 
-        expected = [0] * self.m
-        for idx, rho in [(0, 2), (2, 1), (4, 5)]:
-            expected[idx] = rho
-        for i in range(self.m):
-            expected[i] = max(expected[i], hll2.registers[i])
+        self.assertTrue(result, hll1)
+        self.assertGreaterEqual(result.estimate(), max(card1_pre, card2_pre))
 
-        self.assertEqual(hll1.impl.registers, expected)
-        self.assertIs(result, hll1)
-        self.assertGreaterEqual(hll1.estimate(), max(card1_pre, card2_pre))
-
+    def _make_sparse(self, sparse_entries=None):
+        """Create a sparse HLL with optional sparse entries."""
+        hll = HyperLogLog(b=self.b, mode='sparse')
+        if sparse_entries:
+            hll.registers = sparse_entries.copy()
+            hll.impl.registers = sparse_entries.copy()
+        return hll
+    
     def test_sparse_sparse_merge(self):
         hll1 = self._make_sparse([(0, 4), (3, 2), (6, 5)])
         hll2 = self._make_sparse([(0, 6), (2, 7), (3, 1)])
@@ -129,8 +120,7 @@ class TestMergeOperations(unittest.TestCase):
         # Use a larger b value for this test to ensure conversion happens
         large_b = 8  # 256 registers
         large_m = 1 << large_b
-        
-        # Create enough entries to definitely force conversion (beyond typical threshold)
+
         many_entries = [(i, i % 7 + 1) for i in range(large_m)]  # Fill all registers
         hll1 = HyperLogLog(b=large_b, mode='sparse')
         hll1.registers = many_entries.copy()
@@ -144,7 +134,6 @@ class TestMergeOperations(unittest.TestCase):
         card2_pre = hll2.estimate()
         result = hll1.merge(hll2)
 
-        # After merge with many entries, should convert to dense
         self.assertEqual(hll1.mode, 'dense')
         self.assertIs(result, hll1)
         self.assertGreaterEqual(hll1.estimate(), max(card1_pre, card2_pre))

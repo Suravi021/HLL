@@ -1,5 +1,4 @@
 from .constants import rawEstimateData, biasData
-
 from numpy import searchsorted
 
 def bias_estimate(E: float, b: int) -> float:

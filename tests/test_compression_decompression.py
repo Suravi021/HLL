@@ -7,7 +7,6 @@ class TestCompression(unittest.TestCase):
         for i in range(100):
             hll.add(str(i))
         data = pack_registers(hll.registers, hll.b)
-        # In real code, you'd then reload from `data`
         self.assertIsInstance(data, bytes)
 
     def test_sparse_compression_roundtrip(self):

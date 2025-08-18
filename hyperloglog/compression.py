@@ -19,24 +19,24 @@ def pack_registers(registers: NDArray[np.int32], binbits: int) -> bytes:
     """
 
     # Input validation
-    if not (isinstance(registers, np.ndarray) and np.issubdtype(registers.dtype, np.integer)):
-        raise ValueError("registers must be a numpy array of integers")
+    if len(registers) == 0:
+        return b''
+    
+    if not (isinstance(registers, np.ndarray)) : 
+        raise ValueError("registers must be a numpy array")
 
     if not isinstance(binbits, int) or binbits <= 0:
         raise ValueError("binbits must be a positive integer")
     
     if binbits > 64:
         raise ValueError("binbits must be <= 64 to prevent memory issues")
-    
-    if not registers:
-        return b''
-    
+
     # Check register values
     max_val = (1 << binbits) - 1
 
     for i, val in enumerate(registers):
 
-        if not isinstance(val, int):
+        if not isinstance(val, (int, np.integer)):
             raise ValueError(f"Register {i} must be an integer")
         
         if val < 0:
@@ -54,10 +54,15 @@ def pack_registers(registers: NDArray[np.int32], binbits: int) -> bytes:
     m = len(registers)
     bitstream = 0
     for i, val in enumerate(registers):
-        bitstream |= (val & ((1 << binbits) - 1)) << (i * binbits)
+        bitstream |= (int(val) & ((1 << binbits) - 1)) << (i * binbits)
     
+
+
+
     needed_bytes = (m * binbits + 7) // 8
-    return bitstream.to_bytes(needed_bytes, byteorder='little')
+    return bitstream.to_bytes(needed_bytes,byteorder='little')
+
+
 
 
 def unpack_registers(data: bytes, m: int, binbits: int) -> NDArray[np.int32]:
@@ -75,7 +80,6 @@ def unpack_registers(data: bytes, m: int, binbits: int) -> NDArray[np.int32]:
     Raises:
         ValueError: If inputs are invalid or data is insufficient
     """
-
     # Input validation
     if not isinstance(data, bytes):
         raise ValueError("data must be bytes")
@@ -91,6 +95,7 @@ def unpack_registers(data: bytes, m: int, binbits: int) -> NDArray[np.int32]:
     # Check if we have enough data
     required_bits = m * binbits
     required_bytes = (required_bits + 7) // 8
+
     if len(data) < required_bytes:
         raise ValueError(f"Insufficient data: need {required_bytes} bytes, got {len(data)}")
     

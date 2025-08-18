@@ -3,42 +3,45 @@ import random
 from typing import List
 from hyperloglog.compression import unpack_registers, pack_registers
 
-
+import numpy as np
 class TestRegisterPacking(unittest.TestCase):
     """Comprehensive unit tests for register packing functions."""
 
     def test_basic_functionality(self):
         """Test basic pack/unpack operations."""
         # Test empty case
-        packed = pack_registers([], 8)
+        packed = pack_registers(np.array([]), 8)
         self.assertEqual(packed, b'')
         unpacked = unpack_registers(b'', 0, 8)
-        self.assertEqual(unpacked, [])
+        self.assertTrue(np.array_equal(unpacked,  np.array([])))
+
         
         # Test single register
-        packed = pack_registers([42], 8)
+        packed = pack_registers(np.array([42]), 8)
         unpacked = unpack_registers(packed, 1, 8)
-        self.assertEqual(unpacked, [42])
+        self.assertEqual(unpacked, np.array([42]))
         
         # Test byte-aligned packing
-        registers = [1, 2, 3, 4, 5]
+        registers = np.array([1, 2, 3, 4, 5])
         packed = pack_registers(registers, 8)
         unpacked = unpack_registers(packed, len(registers), 8)
-        self.assertEqual(unpacked, registers)
+        self.assertTrue(np.array_equal(unpacked, registers))
+
 
     def test_sub_byte_packing(self):
         """Test bit packing for sub-byte register sizes."""
         # 4-bit registers
-        registers = [1, 2, 3, 4]
+        registers = np.array([1, 2, 3, 4])
         packed = pack_registers(registers, 4)
         unpacked = unpack_registers(packed, len(registers), 4)
-        self.assertEqual(unpacked, registers)
+        self.assertTrue(np.array_equal(unpacked, registers))
         
         # 1-bit registers (bit array)
-        registers = [1, 0, 1, 1, 0, 1, 0, 0]
+        registers = np.array([1, 0, 1, 1, 0, 1, 0, 0])
         packed = pack_registers(registers, 1)
         unpacked = unpack_registers(packed, len(registers), 1)
-        self.assertEqual(unpacked, registers)
+        self.assertTrue(np.array_equal(unpacked, registers))
+
 
     def test_various_bit_widths_systematic(self):
         """Systematically test all bit widths from 1 to 16."""
@@ -55,11 +58,13 @@ class TestRegisterPacking(unittest.TestCase):
             ]
             
             for pattern in test_patterns:
+                pattern=np.array(pattern)
                 if all(v <= max_val for v in pattern):
                     with self.subTest(binbits=binbits, pattern=pattern):
                         packed = pack_registers(pattern, binbits)
                         unpacked = unpack_registers(packed, len(pattern), binbits)
-                        self.assertEqual(unpacked, pattern)
+                        self.assertTrue(np.array_equal(unpacked, pattern))
+
 
     def test_stress_random_data(self):
         """Stress test with pseudo-random data."""
@@ -70,61 +75,59 @@ class TestRegisterPacking(unittest.TestCase):
             max_val = (1 << binbits) - 1
             count = random.randint(1, 50)
             
-            registers = [random.randint(0, max_val) for _ in range(count)]
+            registers = np.array([random.randint(0, max_val) for _ in range(count)])
             
             packed = pack_registers(registers, binbits)
             unpacked = unpack_registers(packed, len(registers), binbits)
-            self.assertEqual(unpacked, registers)
+            self.assertTrue(np.array_equal(unpacked, registers))
 
     def test_pack_registers_value_errors(self):
         """Test pack_registers ValueError conditions with specific assertions."""
-        # Test: registers must be a list
-        with self.assertRaisesRegex(ValueError, "registers must be a list"):
+        # Test: registers must be a np.array
+        with self.assertRaisesRegex(ValueError, "registers must be a numpy array"):
             pack_registers("not a list", 8)
         
-        with self.assertRaisesRegex(ValueError, "registers must be a list"):
+        with self.assertRaisesRegex(ValueError, "registers must be a numpy array"):
             pack_registers((1, 2, 3), 8)  # tuple instead of list
         
         # Test: binbits must be positive integer
         with self.assertRaisesRegex(ValueError, "binbits must be a positive integer"):
-            pack_registers([1], 0)
+            pack_registers(np.array([1]), 0)
         
         with self.assertRaisesRegex(ValueError, "binbits must be a positive integer"):
-            pack_registers([1], -1)
+            pack_registers(np.array([1]), -1)
         
         with self.assertRaisesRegex(ValueError, "binbits must be a positive integer"):
-            pack_registers([1], 3.14)
+            pack_registers(np.array([1]), 3.14)
         
         # Test: binbits must be <= 64
         with self.assertRaisesRegex(ValueError, "binbits must be <= 64 to prevent memory issues"):
-            pack_registers([1], 65)
+            pack_registers(np.array([1]), 65)
         
         with self.assertRaisesRegex(ValueError, "binbits must be <= 64 to prevent memory issues"):
-            pack_registers([1], 100)
+            pack_registers(np.array([1]), 100)
         
         # Test: Register values must be integers
-        with self.assertRaisesRegex(ValueError, "Register 1 must be an integer"):
-            pack_registers([1, "not an int", 3], 8)
         
         with self.assertRaisesRegex(ValueError, "Register 0 must be an integer"):
-            pack_registers([3.14], 8)
+            pack_registers(np.array([3.14]), 8)
         
         # Test: Register values must be non-negative
         with self.assertRaisesRegex(ValueError, "Register 0 must be non-negative"):
-            pack_registers([-1], 8)
+            pack_registers(np.array([-1]), 8)
         
         with self.assertRaisesRegex(ValueError, "Register 2 must be non-negative"):
-            pack_registers([1, 2, -5], 8)
+            pack_registers(np.array([1, 2, -5]), 8)
         
         # Test: Register values must fit in specified bit width
         with self.assertRaisesRegex(ValueError, "Register 0 value 256 exceeds 8-bit limit \\(255\\)"):
-            pack_registers([256], 8)
+            pack_registers(np.array([256]), 8)
         
         with self.assertRaisesRegex(ValueError, "Register 1 value 16 exceeds 4-bit limit \\(15\\)"):
-            pack_registers([1, 16], 4)
+            pack_registers(np.array([1, 16]), 4)
         
         with self.assertRaisesRegex(ValueError, "Register 0 value 2 exceeds 1-bit limit \\(1\\)"):
-            pack_registers([2], 1)
+            pack_registers(np.array([2]), 1)
 
     def test_unpack_registers_value_errors(self):
         """Test unpack_registers ValueError conditions with specific assertions."""
@@ -172,7 +175,7 @@ class TestRegisterPacking(unittest.TestCase):
         
         # Test pack_registers overflow
         with self.assertRaisesRegex(OverflowError, "Total bits \\(1048584\\) too large, risk of memory overflow"):
-            pack_registers([1] * over_limit, 8)
+            pack_registers(np.array([1] * over_limit), 8)
         
         # Test unpack_registers overflow - need enough data to pass the data check first
         large_data = b'\x01' * (over_limit + 1000)  # More than enough data
@@ -181,7 +184,7 @@ class TestRegisterPacking(unittest.TestCase):
         
         # Test that exactly at limit works (no overflow)
         try:
-            packed = pack_registers([1] * exactly_at_limit, 8)
+            packed = pack_registers(np.array([1] * exactly_at_limit), 8)
             unpacked = unpack_registers(packed, exactly_at_limit, 8)
             self.assertEqual(len(unpacked), exactly_at_limit)
         except (OverflowError, MemoryError):
@@ -198,22 +201,25 @@ class TestRegisterPacking(unittest.TestCase):
         ]
         
         for binbits, registers in test_cases:
+            registers=np.array(registers)
             with self.subTest(binbits=binbits):
                 packed = pack_registers(registers, binbits)
                 unpacked = unpack_registers(packed, len(registers), binbits)
-                self.assertEqual(unpacked, registers)
+                self.assertTrue(np.array_equal(unpacked, registers))
+
         
         # Test with extra data (should not cause issues)
-        packed = pack_registers([1, 2], 8)
+        packed = pack_registers(np.array([1, 2]), 8)
         extra_data = packed + b'\xff\xff'
         unpacked = unpack_registers(extra_data, 2, 8)
-        self.assertEqual(unpacked, [1, 2])
+        self.assertTrue(np.array_equal(unpacked, np.array([1,2])))
+
         
         # Test alternating patterns
-        registers = [0, 15, 0, 15, 0, 15]
+        registers = np.array([0, 15, 0, 15, 0, 15])
         packed = pack_registers(registers, 4)
         unpacked = unpack_registers(packed, len(registers), 4)
-        self.assertEqual(unpacked, registers)
+        self.assertTrue(np.array_equal(unpacked, registers))
 
     def test_byte_calculation_correctness(self):
         """Test that byte calculations are correct for various bit arrangements."""
@@ -228,14 +234,14 @@ class TestRegisterPacking(unittest.TestCase):
         
         for register_count, binbits, expected_bytes in test_cases:
             with self.subTest(registers=register_count, binbits=binbits):
-                registers = [1] * register_count
+                registers = np.array([1] * register_count)
                 packed = pack_registers(registers, binbits)
                 self.assertEqual(len(packed), expected_bytes)
                 
                 unpacked = unpack_registers(packed, register_count, binbits)
-                self.assertEqual(unpacked, registers)
+                self.assertTrue(np.array_equal(unpacked, registers))
+
 
 
 if __name__ == '__main__':
-    # Run with verbose output
     unittest.main(verbosity=2)

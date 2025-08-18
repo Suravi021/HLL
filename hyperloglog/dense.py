@@ -1,5 +1,6 @@
 from bisect import bisect_left
 import math
+import numpy as np
 
 from .constants import ALPHA_MM, THRESHOLD
 from .bias_correction import bias_estimate
@@ -10,28 +11,32 @@ class DenseHyperLogLog:
     """
     Dense HyperLogLog implementation .
     """
-    def __init__(self, b: int = 14, register: int | bytes = 0):
+    def __init__(self, b: int = 14, register: bytes = b''):
         """
         Initializes the DenseHyperLogLog instance.
 
         Args:
             b (int): Precision parameter (number of bits for indexing registers). Default is 14.
-            register (int or bytes): Packed register state or 0 for a fresh instance.
+            register (bytes): Packed register state or 0 for a fresh instance.
 
         Notes:
             - The number of registers m is 2^b.
             - If `register` is provided, it is unpacked into register values.
         """
-        if b in range(4,19):
+        if b in range(4, 19):
             self.b = b # number of bits in the register
         else:
              raise ValueError("Value of b not in range [4,18]")
+        
         self.m = 1 << b
+
         if register:
             self.registers = unpack_registers(register, 1 << self.b, self.b)
-        else:
-            self.registers = [0] * self.m
 
+        else:
+            self.registers = np.zeros(self.m, dtype=np.int32)
+
+            
     def add(self, item: str) -> int:
         """
         Adds a single item to the HLL estimator.
@@ -97,7 +102,8 @@ class DenseHyperLogLog:
         m = self.m
         Z = sum(2.0 ** -r for r in self.registers)
         E = ALPHA_MM[self.b] / Z
-        V = self.registers.count(0)
+        V = np.count_nonzero(self.registers == 0)
+
         if E <= THRESHOLD[self.b]:
             correction = bias_estimate(E, self.b)
             E -= correction
