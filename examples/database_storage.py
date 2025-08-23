@@ -54,7 +54,7 @@ print(f"\nEstimate from HLL: {estimate}")
 print(f"Actual count: {50_000} (for comparison)")
 
 
-# ------------------ (Optional) STORE IN DB ------------------
+# ------------------STORE IN DB ------------------
 try:
     # Serialize HLL object to base64 string
     b64_data = serialize_hll(hll)
@@ -70,7 +70,7 @@ except psycopg2.Error as e:
     raise
 
 
-# ------------------ (Optional) FETCH BACK & VERIFY ------------------
+# ---------------FETCH BACK & VERIFY ------------------
 try:
     cur.execute("SELECT hll_data FROM hll_counters WHERE label = %s", ("test_hll",))
     row = cur.fetchone()
